@@ -1,13 +1,13 @@
-function MRtask_3D_2_wXBox2(run,neuralRecording)
+function MRtask_3D_2_wXBox3(run,neuralRecording)
 %% User Inputs
-taskID = 'MentalRotationXbox';
+taskID = 'MentalRotation';
 runNum = run;
 if nargin==1
     neuralRecording = 1;
 end
 
 % Experiment Parameters
-nTrials = 25;
+nTrials = 0;
 practiceTrials = 10;
 
 %% Setup
@@ -44,7 +44,7 @@ end
 
 % Creates initial window
 screenNum=max(Screen('Screens'));
-[window, windowRect] = Screen('OpenWindow',screenNum,0,[]);
+[w, windowRect] = Screen('OpenWindow',screenNum,0,[]);
 
 % Setup Input
 KbName('UnifyKeyNames');
@@ -75,8 +75,6 @@ if ~exist("./PhotodiodeMovies", "dir"); error("No movies found"); end
 
 movies_dir = dir("./PhotodiodeMovies");
 movies_dir = movies_dir(3:end);
-movie_order = randperm(length(movies_dir));
-movie_order_idx = 1;
 
 % Photodiode Square
 try
@@ -111,98 +109,89 @@ behav.accuracyScreenTime=NaN(1,(nTrials/25));
 behav.continuingScreenTime=NaN(1,(nTrials/25));
 behav.directions=cell(2,(nTrials + practiceTrials));
 behav.continuousInputTimeS = NaN(1,nTrials + practiceTrials);
-behav.rotationVids = cell(4, nTrials + practiceTrials);
 
 %% Start Presentation
-Screen('TextFont', window, 'Helvetica');
-Screen('TextSize', window, 20);
-Instruction1 = WrapString(['You will be presented with two objects, which may or may not have different rotations.' ...
-                           '\nYou need to tell if they are the same shape or not. ',...
-                           '\n\nPress any key to continue']);
+Screen('TextFont', w, 'Helvetica');
+Screen('TextSize', w, 20);
+Instruction1 = WrapString(['You will be presented with two objects, which may or may not have different rotations. \nYou need to tell if they are the same shape or not. ',...
+                           '\n\nPress A if they are the same. \nPress B if they are mirrored \n\nPress any key to continue']);
 Instruction2 = WrapString(['The task has ', int2str(practiceTrials), ' practice trials, and ', int2str(nTrials), ' test trials.',...
                            '\nEvery 25 trials, you will be able to take a break and rest.']);
 
 % Intro instructions
 if run == 1
-    DrawFormattedText(window, Instruction1,'center','center',WhiteIndex(screenNum),[],[],[],1.5);
-    Screen('Flip',window);
+    DrawFormattedText(w, Instruction1,'center','center',WhiteIndex(screenNum),[],[],[],1.5);
+    Screen('Flip',w);
     KbWait([], 2);
-    DrawFormattedText(window, Instruction2,'center','center',WhiteIndex(screenNum),[],[],[],1.5);
-    Screen('Flip',window);
+    DrawFormattedText(w, Instruction2,'center','center',WhiteIndex(screenNum),[],[],[],1.5);
+    Screen('Flip',w);
     KbWait([], 2);
 end
 
 KeyAssignment = 1;
 switch KeyAssignment
     case 1
-        DrawFormattedText(window,['Press A if they are the same. \n' ...
-            'Press B if they are different.\n Press any key to continue.'],'center','center',WhiteIndex(screenNum),[],[],[],1.5);
+        DrawFormattedText(w,['Press the "w" key if the objects are the same.\n ' ...
+            'Press the "o" button if the objects are different.\n Press any key to continue.'],'center','center',WhiteIndex(screenNum),[],[],[],1.5);
     case 2
-        DrawFormattedText(window,['Press the right button if the objects are the same.\n ' ...
+        DrawFormattedText(w,['Press the right button if the objects are the same.\n ' ...
             'Press the left button if the objects are different.\n Press any key to continue.'],'center','center',WhiteIndex(screenNum),[],[],[],1.5);
 end
-Screen('Flip',window);
+Screen('Flip',w);
 KbWait([], 2);
 
 
-DrawFormattedText(window,'Beginning practice phase','center','center',WhiteIndex(screenNum));
-Screen('Flip',window);
-wait_start = GetSecs();
-while GetSecs() - wait_start < 2; end
+DrawFormattedText(w,'Beginning practice phase','center','center',WhiteIndex(screenNum));
+Screen('Flip',w);
+WaitSecs(2);
 
+abortTask = false;
 for i=1:practiceTrials
-    RunTrial(true); 
-    if kill; break; end
+    abortTask = RunTrial(true); 
+    if abortTask; break; end
 end
 
-if kill; return; end
+if abortTask; return; end
 
-Screen('TextSize', window, 40);
-DrawFormattedText(window,'Beginning trial phase.\n Press any key to continue.','center','center',WhiteIndex(screenNum));
-Screen('Flip',window);
+Screen('TextSize', w, 40);
+DrawFormattedText(w,'Beginning trial phase.\n Press any key to continue.','center','center',WhiteIndex(screenNum));
+Screen('Flip',w);
 KbWait;
 
 for i = practiceTrials+1 : nTrials
-    RunTrial(false); 
-    if kill; break; end
+    abortTask = RunTrial(false); 
+    if abortTask; break; end
 end
 
-if kill; return; end
-DrawFormattedText(window,'Experiment Complete!\nThank you for your participation.','center','center',WhiteIndex(screenNum));
-Screen('Flip',window);
-wait_start = GetSecs();
-while GetSecs() - wait_start < 3; end
-
-EndTask();
+DrawFormattedText(w,'Experiment Complete!\nThank you for your participation.','center','center',WhiteIndex(screenNum));
+Screen('Flip',w);
+WaitSecs(3);
 
 %% Helper Functions
-    function RunTrial(practice)
+    function abort = RunTrial(practice)
+        abort = false
         if practice; j=randomizedPractice(i);
         else;        j=randomizedTrials(i);
         end
 
+        Screen('TextSize', w, 20);
+        behav.objectForTrial(i)=code(3,j);
+        behav.degreeForTrial(i)=(code(2,j)-1)*50;
+        behav.pairTypeForTrial(i)=code(1,j);
+        img = imread(fullfile('Stimuli',imgSet(behav.pairTypeForTrial(i),(code(2,j)),behav.objectForTrial(i))));
+        tex = Screen('MakeTexture',w,img);
+        Screen('DrawTexture',w,tex);
+        behav.stimulusStartTime(i) = Screen('Flip',w);
+
         if neuralRecording
             try   
-                Screen('FillRect',window,WhiteIndex(screenNum),flickerSquarePos);
+                Screen('FillRect',w,WhiteIndex(screenNum),flickerSquarePos);
                 comment = sprintf('%s %0*d  %s %d %s','Trial',3,i,'Degree',behav.degreeForTrial(i));
                 sendBlackrockComments(comment,onlineNSP)
             catch
             end
         end
 
-        Screen('TextSize', window, 20);
-        behav.objectForTrial(i)=code(3,j);
-        behav.degreeForTrial(i)=(code(2,j)-1)*50;
-        behav.pairTypeForTrial(i)=code(1,j);
-        img = imread(fullfile('Stimuli',imgSet(behav.pairTypeForTrial(i),(code(2,j)),behav.objectForTrial(i))));
-        tex = Screen('MakeTexture',window,img);
-        Screen('DrawTexture',window,tex);
-        behav.stimulusStartTime(i) = Screen('Flip',window);
-        wait_start = GetSecs();
-        while GetSecs() - wait_start < 0.15; end
-        Screen('DrawTexture',window,tex);
-        Screen('Flip',window);
-        
         % [response,behav.responseTime(i)] = keyboardResponse();
         timeStart = GetSecs();
         xBoxInput = GetXBox();
@@ -211,16 +200,12 @@ EndTask();
             key_code(KbName('w')) || key_code(KbName('o')) || key_code(KbName('escape'));
         tr_dirs = [];
         tr_dir_ts = [];
-        [same_cond, opp_cond, escape_cond] = deal(false);
-        
+
         while ~break_loop
             xBoxInput = GetXBox();
             [~, ~, key_code] = KbCheck();
-            same_cond = xBoxInput.A || key_code(KbName('w'));
-            opp_cond = xBoxInput.B || key_code(KbName('o'));
-            escape_cond = key_code(KbName('escape'));
-            break_loop = same_cond || opp_cond || escape_cond;
-
+            break_loop = xBoxInput.A || xBoxInput.B || xBoxInput.Start || ...
+                         key_code(KbName('w')) || key_code(KbName('o')) || key_code(KbName('escape'));
             left_rot =  xBoxInput.JoystickLX < -0.5 || xBoxInput.JoystickRX < -0.5 || xBoxInput.DPadLeft || xBoxInput.LB || ...
                         xBoxInput.LT;
             right_rot = xBoxInput.JoystickLX > 0.5 || xBoxInput.JoystickRX > 0.5 || xBoxInput.DPadRight || xBoxInput.RB || ...
@@ -232,27 +217,15 @@ EndTask();
                 tr_dirs = [tr_dirs, 'r'];
                 tr_dir_ts = [tr_dir_ts, GetSecs() - behav.stimulusStartTime(i)];
             end
-            wait_start = GetSecs();
-            while GetSecs() - wait_start < 0.2; end
+            WaitSecs(0.2);
         end
-        if neuralRecording
-            try  
-                Screen('FillRect',window,WhiteIndex(screenNum),flickerSquarePos);
-                comment = sprintf('Decision made: Trial %0*d  Degree: %d  Same: %d Diff: %d  Esc %d', ...
-                                  i,behav.degreeForTrial(i), same_cond, opp_cond, escape_cond);
-                sendBlackrockComments(comment,onlineNSP)
-            catch
-            end
-        end
-
-
         behav.directions{1, i} = tr_dirs;
         behav.directions{2, i} = tr_dir_ts;
         behav.responseTime(i) = GetSecs() - behav.stimulusStartTime(i);
 
         same_cond = xBoxInput.A || key_code(KbName('w'));
         opp_cond = xBoxInput.B || key_code(KbName('o'));
-        escape_cond = key_code(KbName('escape'));
+        escape_cond = xBoxInput.Start || key_code(KbName('escape'));
         % behav.inputForTrial(i)=cellstr(response);
         disp([same_cond, opp_cond, escape_cond]);
         
@@ -281,36 +254,23 @@ EndTask();
             behav.inputForTrial{i} = 'e';
             kill = true; %Changed on 2/22/2024
             EndTask()
+            abort = true;
             return %this ends ends the task, but not the neural recording, was here
         end
         
         disp(answer);
         
-        DrawFormattedText(window,answer,'center','center',WhiteIndex(screenNum));
-        Screen('Flip',window);
-        wait_start = GetSecs();
-        while GetSecs() - wait_start < 0.1; end
-        DrawFormattedText(window,answer,'center','center',WhiteIndex(screenNum));
-        Screen('Flip',window);
-        wait_start = GetSecs();
-        while GetSecs() - wait_start < 1.4; end
-     
-        selected_movie = movies_dir(movie_order(movie_order_idx));
-        moviename = fullfile(selected_movie.folder, selected_movie.name);
-        moviename_split = split(selected_movie.name, '_');
-        behav.rotationVids{1, i} = selected_movie.name;
-        behav.rotationVids{2, i} = str2double(moviename_split{1});
-        behav.rotationVids{3, i} = str2double(moviename_split{3}(1));
-        behav.rotationVids{4, i} = str2double(moviename_split{4});
-
-        movie_order_idx = movie_order_idx + 1;
-        if movie_order_idx > length(movie_order)
-            movie_order_idx = randperm(length(movies_dir));
-            movie_order_idx = 1;
+        if practice
+            DrawFormattedText(w,answer,'center','center',WhiteIndex(screenNum));
+            Screen('Flip',w);
+            WaitSecs(1.5);
         end
+        selected_movie = randi(length(movies_dir));
+        selected_movie = movies_dir(selected_movie);
+        moviename = fullfile(selected_movie.folder, selected_movie.name);
 
         % [movie, movieduration, fps, imgw, imgh, ~, ~, hdrStaticMetaData] = Screen('OpenMovie', w, moviename);
-        moviePtr = Screen('OpenMovie', window, moviename);
+        moviePtr = Screen('OpenMovie', w, moviename);
 
         % Start playback of the movie
         Screen('PlayMovie', moviePtr, 1);
@@ -328,7 +288,7 @@ EndTask();
             end
 
             % Get the next frame of the movie
-            tex = Screen('GetMovieImage', window, moviePtr);
+            tex = Screen('GetMovieImage', w, moviePtr);
 
             % If tex is -1, the end of the movie is reached
             if tex <= 0
@@ -336,10 +296,10 @@ EndTask();
             end
 
             % Draw the texture (frame) to the screen
-            Screen('DrawTexture', window, tex);
+            Screen('DrawTexture', w, tex);
 
             % Show the frame on the screen
-            Screen('Flip', window);
+            Screen('Flip', w);
 
             % Release the texture
             Screen('Close', tex);
@@ -356,25 +316,21 @@ EndTask();
             Counter = ['Trial Number: ' num2str(i)];
             disp(Counter)
             Accuracy = (sum(behav.correctAnswers(i-24:i))/25)*100;
-            DrawFormattedText(window,['Accuracy: ' num2str(Accuracy) '%'],'center','center',WhiteIndex(screenNum));
-            behav.accuracyScreenTime((i - practiceTrials)/25)=Screen('Flip',window);
-            wait_start = GetSecs();
-            while GetSecs() - wait_start < 2; end
+            DrawFormattedText(w,['Accuracy: ' num2str(Accuracy) '%'],'center','center',WhiteIndex(screenNum));
+            behav.accuracyScreenTime((i - practiceTrials)/25)=Screen('Flip',w);
+            WaitSecs(2);
             if i~=nTrials
-                DrawFormattedText(window,'Continuing to next block','center','center',WhiteIndex(screenNum));
-                behav.continuingScreenTime((i-practiceTrials)/25)=Screen('Flip',window);
-                wait_start = GetSecs();
-                while GetSecs() - wait_start < 2; end
+                DrawFormattedText(w,'Continuing to next block','center','center',WhiteIndex(screenNum));
+                behav.continuingScreenTime((i-practiceTrials)/25)=Screen('Flip',w);
+                WaitSecs(2);
             end
         end
 
-        Screen('TextSize', window, 50);
-        DrawFormattedText(window,'+','center','center',WhiteIndex(screenNum));
-        behav.fixationCrossTime(i) = Screen('Flip',window);
+        Screen('TextSize', w, 50);
+        DrawFormattedText(w,'+','center','center',WhiteIndex(screenNum));
+        behav.fixationCrossTime(i) = Screen('Flip',w);
         behav.jitterTime(i) = rand(1)/2 + 0.5;
-        wait_start = GetSecs();
-        durat = rand(1)/2 + 0.5;
-        while GetSecs() - wait_start < durat; end
+        WaitSecs(rand(1)/2 + 0.5);
 
         behav.continuousInputTimeS(i) = 0;
         cis_start = GetSecs();
@@ -396,33 +352,32 @@ EndTask();
         sca
         save(fullfile(filepath,filename),'-struct','behav')
     end
-%     
-%     function [response,reactionTime] = keyboardResponse()
-%         for kID_length=1:length(keyboardIDs)
-%             KbQueueCreate(keyboardIDs(kID_length));
-%             KbQueueStart(keyboardIDs(kID_length));
-%         end
-%         response = NaN;
-%         while isnan(response)
-%             for k=1:length(keyboardIDs)
-%                 [pressed, pressTime] = KbQueueCheck(keyboardIDs(k));
-%                 if pressed
-%                     ind = pressTime==max(pressTime);
-%                     response = KbName(find(ind));
-%                     switch response
-%                         case {'w','o','ESCAPE'} 
-%                             reactionTime = pressTime(ind);
-%                         otherwise
-%                             response = NaN;
-%                     end
-%                 end
-%             end
-%         end
-%         for kID_length=1:length(keyboardIDs)
-%             KbQueueStop(keyboardIDs(kID_length));
-%         end
-%     end
-%     WaitSecs(2);
-%     [a,b] = keyboardResponse;
+    function [response,reactionTime] = keyboardResponse()
+        for kID_length=1:length(keyboardIDs)
+            KbQueueCreate(keyboardIDs(kID_length));
+            KbQueueStart(keyboardIDs(kID_length));
+        end
+        response = NaN;
+        while isnan(response)
+            for k=1:length(keyboardIDs)
+                [pressed, pressTime] = KbQueueCheck(keyboardIDs(k));
+                if pressed
+                    ind = pressTime==max(pressTime);
+                    response = KbName(find(ind));
+                    switch response
+                        case {'w','o','ESCAPE'} 
+                            reactionTime = pressTime(ind);
+                        otherwise
+                            response = NaN;
+                    end
+                end
+            end
+        end
+        for kID_length=1:length(keyboardIDs)
+            KbQueueStop(keyboardIDs(kID_length));
+        end
+    end
+    WaitSecs(2);
+    [a,b] = keyboardResponse;
 
 end
